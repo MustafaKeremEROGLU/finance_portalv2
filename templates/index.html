@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Markets Portal</title>
+    <!-- Bootstrap CSS & Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Chart.js & Financial Candlestick Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js"></script>
+
+    <style>
+        .news-badge {
+            background-color: #ffcc00;
+            color: #cc0000;
+            font-weight: 900;
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            letter-spacing: 1px;
+            display: none;
+            animation: pulse 0.8s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.08); }
+        }
+
+        .news-ticker {
+            color: #e0e0e0;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 75vw;
+            transition: opacity 0.5s ease-in-out;
+            text-decoration: none;
+        }
+
+        .news-ticker:hover {
+            color: #ffffff;
+            text-decoration: underline;
+        }
+
+        .update-badge {
+            font-size: 0.75rem;
+            opacity: 0.85;
+        }
+
+        .stock-box {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 14px 16px;
+            transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+            min-height: 125px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .stock-box.fade-out {
+            opacity: 0;
+            transform: translateY(-5px);
+        }
+
+        .sparkline-container {
+            height: 35px;
+            width: 100%;
+            margin: 4px 0;
+        }
+
+        .period-btn {
+            border: 1px solid #dee2e6;
+            background: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 4px 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .period-btn.active, .period-btn:hover {
+            background: #0d6efd;
+            color: white;
+            border-color: #0d6efd;
+        }
+
+        .draw-btn {
+            border: 1px solid #dee2e6;
+            background: #ffffff;
+            color: #495057;
+            padding: 4px 10px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+
+        .draw-btn.active {
+            background: #000000;
+            color: white;
+            border-color: #000000;
+        }
+
+        .candle-container {
+            position: relative;
+            height: 340px;
+            width: 100%;
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 8px;
+            overflow: hidden;
+        }
+
+        /* Çizim Katmanı */
+        #drawingCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #drawingCanvas.active {
+            pointer-events: auto;
+            cursor: crosshair;
+        }
+
+        .crypto-card {
+            background: #ffffff;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 12px 16px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <!-- Navigation Bar with Live News Ticker -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container-fluid px-4 d-flex align-items-center justify-content-start gap-3">
+            <a class="navbar-brand fw-bold mb-0" href="#">FINANCE PORTAL</a>
+            <span class="border-end border-secondary" style="height: 20px;"></span>
+            
+            <div class="d-flex align-items-center gap-2 overflow-hidden">
+                <span id="newsBadge" class="news-badge">NEWS</span>
+                <a id="newsText" href="#" target="_blank" class="news-ticker">Fetching latest market news...</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+        <!-- Header & Live Timer -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">Live Exchange Rates (USD Base)</h4>
+            <span class="badge bg-secondary text-white p-2" id="globalTimer">Updated just now</span>
+        </div>
+
+        <!-- Top USD Currency Cards -->
+        <div class="row g-3 mb-4">
+            <!-- USD / EUR -->
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 bg-primary text-white p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="fs-6 text-white-50">US Dollar / Euro</span>
+                            <h2 class="mb-0">€{{ rates.EUR }}</h2>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-light text-primary mb-2">USD/EUR</span>
+                            <div class="update-badge last-updated">Updated 0s ago</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- USD / GBP -->
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 bg-success text-white p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="fs-6 text-white-50">US Dollar / British Pound</span>
+                            <h2 class="mb-0">£{{ rates.GBP }}</h2>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-light text-success mb-2">USD/GBP</span>
+                            <div class="update-badge last-updated">Updated 0s ago</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- USD / JPY -->
+            <div class="col-md-4">
+                <div class="card shadow-sm border-0 bg-warning text-dark p-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="fs-6 text-muted">US Dollar / Japanese Yen</span>
+                            <h2 class="mb-0">¥{{ rates.JPY }}</h2>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-dark text-warning mb-2">USD/JPY</span>
+                            <div class="update-badge text-muted last-updated" style="opacity: 1;">Updated 0s ago</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard Row -->
+        <div class="row g-4 mb-4">
+            
+            <div class="col-lg-9 d-flex flex-column gap-4">
+                
+                <!-- Stock Lookup Card -->
+                <div class="card shadow-sm border-0 p-4">
+                    <h5 class="card-title mb-3 fw-bold">US Stock Interactive Chart</h5>
+                    <form id="searchForm" class="d-flex gap-2">
+                        <input type="text" id="tickerInput" class="form-control form-control-lg" placeholder="Sembol girin (Örn: AAPL, NVDA, TSLA, AMZN)..." required>
+                        <button type="submit" class="btn btn-primary px-4 fw-bold">Search</button>
+                    </form>
+
+                    <!-- Candlestick Output Container -->
+                    <div id="searchResultArea" class="mt-4" style="display: none;">
+                        <div class="stock-box shadow-sm bg-white border p-3">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h3 class="fw-bold text-dark mb-0" id="resTicker"></h3>
+                                    <span class="text-muted" id="resName"></span>
+                                </div>
+                                <div class="text-end">
+                                    <h3 class="fw-bold text-dark mb-0" id="resPrice"></h3>
+                                    <span class="badge fw-semibold" id="resChange"></span>
+                                </div>
+                            </div>
+
+                            <div class="candle-container">
+                                <canvas id="candlestickCanvas"></canvas>
+                                <!-- Çizim Katmanı -->
+                                <canvas id="drawingCanvas"></canvas>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="d-flex gap-1" id="timePeriodGroup">
+                                        <button class="period-btn active" data-period="1d">1D</button>
+                                        <button class="period-btn" data-period="1w">1W</button>
+                                        <button class="period-btn" data-period="1m">1M</button>
+                                        <button class="period-btn" data-period="1y">1Y</button>
+                                    </div>
+                                    <span class="border-end border-secondary mx-1" style="height: 18px;"></span>
+                                    
+                                    <!-- Kalem & Temizleme Butonları -->
+                                    <button class="draw-btn" id="toggleDrawBtn" title="Çizim Modu">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </button>
+                                    <button class="draw-btn text-danger" id="clearDrawBtn" title="Çizimleri Temizle">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+
+                                    <!-- Kalem Boyutu Slider'ı -->
+                                    <div class="d-flex align-items-center gap-1 ms-1">
+                                        <input type="range" class="form-range" id="brushSize" min="1" max="15" value="2" style="width: 70px;">
+                                        <small id="brushSizeVal" class="text-muted fw-bold" style="font-size: 0.75rem;">2px</small>
+                                    </div>
+                                </div>
+                                <small class="text-muted fw-semibold">Live Candlestick Chart</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="searchError" class="alert alert-danger mt-3" style="display: none;"></div>
+                </div>
+
+                <!-- Live Crypto Cards -->
+                <div class="card shadow-sm border-0 p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0 fw-bold">Live Cryptocurrency Market</h5>
+                        <span class="badge bg-primary">Top Crypto</span>
+                    </div>
+
+                    <div class="row g-3">
+                        {% for crypto in cryptos %}
+                        {% set is_pos = not crypto.change.startswith('-') %}
+                        <div class="col-md-4 col-sm-6">
+                            <div class="crypto-card shadow-sm">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="fw-bold text-dark">{{ crypto.symbol }}</span>
+                                        <small class="text-muted d-block" style="font-size: 0.75rem;">{{ crypto.name }}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="fw-bold text-dark">{{ crypto.price }}</div>
+                                        <span class="badge {{ 'bg-success-subtle text-success' if is_pos else 'bg-danger-subtle text-danger' }}">
+                                            {{ '+' if is_pos else '' }}{{ crypto.change }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column -->
+            <div class="col-lg-3">
+                <div class="card shadow-sm border-0 p-3 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0 fs-6 fw-bold">Top US Stocks</h5>
+                        <span class="badge bg-danger">LIVE</span>
+                    </div>
+
+                    <div class="d-flex flex-column gap-3" id="stockBoxesContainer">
+                        <div class="stock-box shadow-sm" id="box-0"></div>
+                        <div class="stock-box shadow-sm" id="box-1"></div>
+                        <div class="stock-box shadow-sm" id="box-2"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- Live News Ticker Logic ---
+        let newsList = [];
+        let currentNewsIndex = 0;
+
+        function fetchLiveNews() {
+            fetch('/get_news')
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        newsList = data;
+                        showNextNews();
+                    }
+                })
+                .catch(err => console.error("News error:", err));
+        }
+
+        function showNextNews() {
+            if (newsList.length === 0) return;
+
+            const newsBadge = document.getElementById('newsBadge');
+            const newsText = document.getElementById('newsText');
+
+            newsText.style.opacity = '0';
+            newsBadge.style.display = 'inline-block';
+
+            setTimeout(() => {
+                const item = newsList[currentNewsIndex];
+                newsText.textContent = `[${item.source}] ${item.headline}`;
+                newsText.href = item.url || '#';
+                newsText.style.opacity = '1';
+
+                setTimeout(() => {
+                    newsBadge.style.display = 'none';
+                }, 3000);
+
+                currentNewsIndex = (currentNewsIndex + 1) % newsList.length;
+            }, 400);
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            fetchLiveNews();
+            setInterval(showNextNews, 30000);
+            setInterval(fetchLiveNews, 300000);
+        });
+
+        // --- Right Sidebar Rotation ---
+        const stocksData = {{ stocks | tojson }};
+        let currentIndex = 0;
+        let sidebarChartInstances = [null, null, null];
+
+        function renderSparkline(canvasId, historyData, isPositive, index) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            if (sidebarChartInstances[index]) {
+                sidebarChartInstances[index].destroy();
+            }
+
+            const lineColor = isPositive ? '#198754' : '#dc3545';
+            const bgColor = isPositive ? 'rgba(25, 135, 84, 0.1)' : 'rgba(220, 53, 69, 0.1)';
+
+            sidebarChartInstances[index] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(historyData.length).fill(''),
+                    datasets: [{
+                        data: historyData,
+                        borderColor: lineColor,
+                        backgroundColor: bgColor,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                    scales: { x: { display: false }, y: { display: false } }
+                }
+            });
+        }
+
+        function updateStockBoxes() {
+            if (!stocksData || stocksData.length === 0) return;
+
+            const boxes = [
+                document.getElementById('box-0'),
+                document.getElementById('box-1'),
+                document.getElementById('box-2')
+            ];
+
+            boxes.forEach(box => box.classList.add('fade-out'));
+
+            setTimeout(() => {
+                for (let i = 0; i < 3; i++) {
+                    const stock = stocksData[(currentIndex + i) % stocksData.length];
+                    const isPositive = !stock.change.startsWith('-');
+                    const badgeClass = isPositive ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger';
+                    const canvasId = `sparkline-${i}`;
+
+                    boxes[i].innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-bold text-dark">${stock.ticker}</span>
+                                <small class="text-muted d-block text-truncate" style="max-width: 100px;">${stock.name}</small>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold text-dark">${stock.price}</div>
+                                <span class="badge ${badgeClass} fw-semibold">${stock.change}</span>
+                            </div>
+                        </div>
+
+                        <div class="sparkline-container">
+                            <canvas id="${canvasId}"></canvas>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted" style="font-size: 0.7rem;">Last 12 Hours</small>
+                            <small class="${isPositive ? 'text-success' : 'text-danger'}" style="font-size: 0.7rem; font-weight: 600;">
+                                ${isPositive ? '▲ Uptrend' : '▼ Downtrend'}
+                            </small>
+                        </div>
+                    `;
+
+                    renderSparkline(canvasId, stock.history, isPositive, i);
+                }
+
+                boxes.forEach(box => box.classList.remove('fade-out'));
+                currentIndex = (currentIndex + 3) % stocksData.length;
+            }, 400);
+        }
+
+        updateStockBoxes();
+        setInterval(updateStockBoxes, 10000);
+
+        // --- Live Timer ---
+        let secondsPassed = 0;
+        setInterval(() => {
+            secondsPassed++;
+            let timeText = secondsPassed < 60 ? `Updated ${secondsPassed}s ago` : `Updated ${Math.floor(secondsPassed / 60)}m ago`;
+            document.querySelectorAll('.last-updated').forEach(el => el.textContent = timeText);
+            document.getElementById('globalTimer').textContent = timeText;
+        }, 1000);
+
+        // --- Search & Candlestick Chart Logic ---
+        let candlestickChart = null;
+        let activeSymbol = '';
+        let activePeriod = '1d';
+
+        function renderCandlestickChart(candlesData) {
+            const ctx = document.getElementById('candlestickCanvas').getContext('2d');
+            
+            if (candlestickChart) {
+                candlestickChart.destroy();
+            }
+
+            let timeUnit = 'hour';
+            if (activePeriod === '1w' || activePeriod === '1m') {
+                timeUnit = 'day';
+            } else if (activePeriod === '1y') {
+                timeUnit = 'month';
+            }
+
+            candlestickChart = new Chart(ctx, {
+                type: 'candlestick',
+                data: {
+                    datasets: [{
+                        label: activeSymbol,
+                        data: candlesData,
+                        color: {
+                            up: '#00b060',
+                            down: '#ff3b30',
+                            unchanged: '#8e8e93'
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: timeUnit,
+                                displayFormats: {
+                                    hour: 'HH:mm',
+                                    day: 'dd MMM',
+                                    month: 'MMM yyyy'
+                                }
+                            },
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                        },
+                        y: {
+                            position: 'right',
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                        }
+                    }
+                }
+            });
+            
+            initDrawingCanvas();
+        }
+
+        function fetchStockData(symbol, period) {
+            const errorDiv = document.getElementById('searchError');
+            const resultArea = document.getElementById('searchResultArea');
+            errorDiv.style.display = 'none';
+
+            fetch(`/search_stock?symbol=${symbol}&period=${period}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        errorDiv.textContent = data.error;
+                        errorDiv.style.display = 'block';
+                        resultArea.style.display = 'none';
+                        return;
+                    }
+
+                    document.getElementById('resTicker').textContent = data.ticker;
+                    document.getElementById('resName').textContent = data.name;
+                    document.getElementById('resPrice').textContent = data.price;
+
+                    const isPos = !data.change.startsWith('-');
+                    const badge = document.getElementById('resChange');
+                    badge.textContent = data.change;
+                    badge.className = `badge fw-semibold ${isPos ? 'bg-success text-white' : 'bg-danger text-white'}`;
+
+                    resultArea.style.display = 'block';
+                    renderCandlestickChart(data.candles);
+                })
+                .catch(() => {
+                    errorDiv.textContent = 'Veri çekme hatası oluştu.';
+                    errorDiv.style.display = 'block';
+                });
+        }
+
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            activeSymbol = document.getElementById('tickerInput').value.trim();
+            activePeriod = '1d';
+
+            document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.period-btn[data-period="1d"]').classList.add('active');
+
+            fetchStockData(activeSymbol, activePeriod);
+        });
+
+        document.getElementById('timePeriodGroup').addEventListener('click', function(e) {
+            if (e.target.classList.contains('period-btn')) {
+                document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+
+                activePeriod = e.target.getAttribute('data-period');
+                if (activeSymbol) {
+                    fetchStockData(activeSymbol, activePeriod);
+                }
+            }
+        });
+
+        // --- Canvas Drawing Overlay Logic ---
+        const drawCanvas = document.getElementById('drawingCanvas');
+        const drawCtx = drawCanvas.getContext('2d');
+        const toggleDrawBtn = document.getElementById('toggleDrawBtn');
+        const clearDrawBtn = document.getElementById('clearDrawBtn');
+        const brushSizeInput = document.getElementById('brushSize');
+        const brushSizeVal = document.getElementById('brushSizeVal');
+
+        let isDrawingMode = false;
+        let isDrawing = false;
+        let currentLineWidth = 2;
+
+        function initDrawingCanvas() {
+            const container = drawCanvas.parentElement;
+            drawCanvas.width = container.clientWidth;
+            drawCanvas.height = container.clientHeight;
+        }
+
+        window.addEventListener('resize', initDrawingCanvas);
+
+        brushSizeInput.addEventListener('input', function() {
+            currentLineWidth = this.value;
+            brushSizeVal.textContent = `${this.value}px`;
+        });
+
+        toggleDrawBtn.addEventListener('click', function() {
+            isDrawingMode = !isDrawingMode;
+            if (isDrawingMode) {
+                this.classList.add('active');
+                drawCanvas.classList.add('active');
+            } else {
+                this.classList.remove('active');
+                drawCanvas.classList.remove('active');
+            }
+        });
+
+        clearDrawBtn.addEventListener('click', function() {
+            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+        });
+
+        drawCanvas.addEventListener('mousedown', function(e) {
+            if (!isDrawingMode) return;
+            isDrawing = true;
+            const rect = drawCanvas.getBoundingClientRect();
+            drawCtx.beginPath();
+            drawCtx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        });
+
+        drawCanvas.addEventListener('mousemove', function(e) {
+            if (!isDrawing || !isDrawingMode) return;
+            const rect = drawCanvas.getBoundingClientRect();
+            drawCtx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+            drawCtx.strokeStyle = '#000000';
+            drawCtx.lineWidth = currentLineWidth;
+            drawCtx.lineCap = 'round';
+            drawCtx.lineJoin = 'round';
+            drawCtx.stroke();
+        });
+
+        drawCanvas.addEventListener('mouseup', function() {
+            isDrawing = false;
+        });
+
+        drawCanvas.addEventListener('mouseleave', function() {
+            isDrawing = false;
+        });
+    </script>
+</body>
+</html>
