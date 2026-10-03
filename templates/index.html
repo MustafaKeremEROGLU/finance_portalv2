@@ -224,7 +224,7 @@
                 <div class="card shadow-sm border-0 p-4">
                     <h5 class="card-title mb-3 fw-bold">US Stock Interactive Chart</h5>
                     <form id="searchForm" class="d-flex gap-2">
-                        <input type="text" id="tickerInput" class="form-control form-control-lg" placeholder="Sembol girin (Örn: AAPL, NVDA, TSLA, AMZN)..." required>
+                        <input type="text" id="tickerInput" class="form-control form-control-lg" placeholder="(EXP: AAPL, NVDA, TSLA, AMZN)..." required>
                         <button type="submit" class="btn btn-primary px-4 fw-bold">Search</button>
                     </form>
 
@@ -566,7 +566,7 @@
                     renderCandlestickChart(data.candles);
                 })
                 .catch(() => {
-                    errorDiv.textContent = 'Veri çekme hatası oluştu.';
+                    errorDiv.textContent = 'ERROR. Cant pull data.';
                     errorDiv.style.display = 'block';
                 });
         }
