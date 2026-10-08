@@ -4,334 +4,345 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Financial Markets Portal</title>
-    <!-- Bootstrap CSS & Bootstrap Icons -->
+
+    <!-- Tema: sayfa çizilmeden önce uygulanır (yanıp sönmeyi önler) -->
+    <script>
+        (function () {
+            var t = null;
+            try { t = localStorage.getItem('theme'); } catch (e) {}
+            if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-bs-theme', t);
+        })();
+    </script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
-    
-    <!-- Chart.js & Financial Candlestick Plugin -->
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1/build/global/luxon.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.1/dist/chartjs-chart-financial.min.js"></script>
 
     <style>
+        :root {
+            --bg: #f2f4f7; --surface: #ffffff; --line: #e3e7ec;
+            --ink: #17202e; --muted: #667085;
+            --up: #0b8a5f; --down: #d92d3a;
+            --up-bg: #e3f5ee; --down-bg: #fdeaec;
+            --accent: #1d4ed8; --nav: #101828;
+            --font: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+        }
+        [data-bs-theme="dark"] {
+            --bg: #0d1117; --surface: #161b22; --line: #262d37;
+            --ink: #e6e9ee; --muted: #8b95a3;
+            --up: #34d399; --down: #f87171;
+            --up-bg: rgba(52,211,153,.13); --down-bg: rgba(248,113,113,.13);
+            --accent: #6c9bff; --nav: #010409;
+        }
+
+        body { background: var(--bg); color: var(--ink); font-family: var(--font); }
+        .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+        .text-muted-2 { color: var(--muted); }
+        .up { color: var(--up); } .down { color: var(--down); }
+        .chip-up { background: var(--up-bg); color: var(--up); }
+        .chip-down { background: var(--down-bg); color: var(--down); }
+        :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+        .panel-title { font-size: 1rem; font-weight: 600; margin: 0; }
+
+        /* Navbar + haber bandı */
+        .topbar { background: var(--nav); }
         .news-badge {
-            background-color: #ffcc00;
-            color: #cc0000;
-            font-weight: 900;
-            font-size: 0.75rem;
-            padding: 3px 8px;
-            border-radius: 4px;
-            letter-spacing: 1px;
-            display: none;
-            animation: pulse 0.8s infinite alternate;
+            background: #ffcc00; color: #b00020; font-weight: 700; font-size: .7rem;
+            padding: 3px 8px; border-radius: 4px; letter-spacing: .06em;
+            display: none; flex-shrink: 0; animation: pulse .8s infinite alternate;
         }
-
-        @keyframes pulse {
-            from { transform: scale(1); }
-            to { transform: scale(1.08); }
-        }
-
+        @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.07); } }
         .news-ticker {
-            color: #e0e0e0;
-            font-size: 0.9rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 75vw;
-            transition: opacity 0.5s ease-in-out;
-            text-decoration: none;
+            color: #d0d5dd; font-size: .9rem; white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis; max-width: 70vw; transition: opacity .5s; text-decoration: none;
+        }
+        .news-ticker:hover { color: #fff; text-decoration: underline; }
+        .theme-btn { background: none; border: 1px solid #344054; color: #d0d5dd; border-radius: 8px; padding: 4px 9px; }
+        .theme-btn:hover { color: #fff; border-color: #667085; }
+
+        /* Kur şeridi */
+        .rate { padding: 18px 22px; }
+        .rate + .rate { border-left: 1px solid var(--line); }
+        @media (max-width: 767px) { .rate + .rate { border-left: 0; border-top: 1px solid var(--line); } }
+        .rate-pair { font-weight: 600; font-size: .85rem; }
+        .rate-val { font-size: 1.9rem; font-weight: 600; line-height: 1.15; }
+        .rate-name { font-size: .8rem; color: var(--muted); }
+
+        /* Arama */
+        .search-input { background: var(--bg); border: 1px solid var(--line); color: var(--ink); }
+        .search-input:focus { background: var(--bg); color: var(--ink); border-color: var(--accent); box-shadow: none; }
+        /* Search butonu: genişlik asla değişmez, yazı yerinde kalır, spinner üstüne biner */
+        .search-btn { position: relative; min-width: 112px; overflow: hidden; }
+        .search-btn:disabled { opacity: 1; }
+        .search-btn .btn-label { transition: opacity .15s; }
+        .search-btn .btn-spin {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity .15s;
+        }
+        .search-btn .btn-spin::before {
+            content: ''; width: 18px; height: 18px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+            animation: spin .7s linear infinite;
+        }
+        .search-btn.is-loading .btn-label { opacity: 0; }
+        .search-btn.is-loading .btn-spin { opacity: 1; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Yüklenirken aramanın altında akan ince çizgi */
+        .load-bar { height: 2px; margin-top: 10px; border-radius: 2px; overflow: hidden; background: transparent; }
+        .load-bar::after {
+            content: ''; display: block; height: 100%; width: 35%; border-radius: 2px;
+            background: var(--accent); transform: translateX(-100%); opacity: 0;
+        }
+        .load-bar.on::after { opacity: 1; animation: slide 1s ease-in-out infinite; }
+        @keyframes slide { to { transform: translateX(300%); } }
+
+        .quick-chip {
+            border: 1px solid var(--line); background: transparent; color: var(--muted);
+            font-family: var(--mono); font-size: .78rem; font-weight: 600;
+            padding: 3px 10px; border-radius: 999px; transition: color .15s, border-color .15s;
+        }
+        .quick-chip:hover { color: var(--accent); border-color: var(--accent); }
+        .chip-wrap { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+        .chip-wrap:hover { border-color: var(--accent); }
+        .chip-wrap .quick-chip { border: 0; border-radius: 0; }
+        .chip-wrap .chip-x { border: 0; background: transparent; color: var(--muted); padding: 3px 9px 3px 0; font-size: .9rem; line-height: 1; }
+        .chip-wrap .chip-x:hover { color: var(--down); }
+        .chip-add { width: 30px; height: 26px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-size: 1rem; }
+        .chip-input {
+            width: 92px; font-family: var(--mono); font-size: .78rem; font-weight: 600; text-transform: uppercase;
+            padding: 3px 10px; border-radius: 999px; border: 1px solid var(--accent);
+            background: var(--bg); color: var(--ink);
         }
 
-        .news-ticker:hover {
-            color: #ffffff;
-            text-decoration: underline;
-        }
+        .chart-empty { border: 1px dashed var(--line); border-radius: 10px; padding: 48px 16px; text-align: center; color: var(--muted); }
+        .candle-container { position: relative; height: 360px; width: 100%; }
+        #drawingCanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+        #drawingCanvas.active { pointer-events: auto; cursor: crosshair; touch-action: none; }
 
-        .update-badge {
-            font-size: 0.75rem;
-            opacity: 0.85;
+        .tool-btn, .period-btn {
+            border: 1px solid var(--line); background: transparent; color: var(--muted);
+            font-size: .8rem; font-weight: 600; padding: 4px 12px; border-radius: 6px;
+            transition: background .15s, color .15s, border-color .15s;
         }
+        .tool-btn { padding: 4px 9px; }
+        .period-btn:hover, .tool-btn:hover { color: var(--ink); border-color: var(--muted); }
+        .period-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .tool-btn.active { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+        #brushColor { width: 28px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; cursor: pointer; }
 
+        /* Kripto */
+        .crypto-row { border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+
+        /* Yan sütun hisseleri */
         .stock-box {
-            background-color: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 14px 16px;
-            transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
-            min-height: 125px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-height: 128px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            transition: opacity .4s, transform .4s;
         }
+        .stock-box.fade-out { opacity: 0; transform: translateY(-5px); }
+        .sparkline-container { height: 36px; width: 100%; margin: 4px 0; }
 
-        .stock-box.fade-out {
-            opacity: 0;
-            transform: translateY(-5px);
-        }
-
-        .sparkline-container {
-            height: 35px;
-            width: 100%;
-            margin: 4px 0;
-        }
-
-        .period-btn {
-            border: 1px solid #dee2e6;
-            background: #f8f9fa;
-            color: #495057;
-            font-weight: 600;
-            font-size: 0.8rem;
-            padding: 4px 12px;
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .period-btn.active, .period-btn:hover {
-            background: #0d6efd;
-            color: white;
-            border-color: #0d6efd;
-        }
-
-        .draw-btn {
-            border: 1px solid #dee2e6;
-            background: #ffffff;
-            color: #495057;
-            padding: 4px 10px;
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-
-        .draw-btn.active {
-            background: #000000;
-            color: white;
-            border-color: #000000;
-        }
-
-        .candle-container {
-            position: relative;
-            height: 340px;
-            width: 100%;
-            background-color: #ffffff;
-            border-radius: 8px;
-            padding: 8px;
-            overflow: hidden;
-        }
-
-        /* Çizim Katmanı */
-        #drawingCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        #drawingCanvas.active {
-            pointer-events: auto;
-            cursor: crosshair;
-        }
-
-        .crypto-card {
-            background: #ffffff;
-            border: 1px solid #e9ecef;
-            border-radius: 10px;
-            padding: 12px 16px;
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
         }
     </style>
 </head>
-<body class="bg-light">
+<body>
 
-    <!-- Navigation Bar with Live News Ticker -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-        <div class="container-fluid px-4 d-flex align-items-center justify-content-start gap-3">
-            <a class="navbar-brand fw-bold mb-0" href="#">FINANCE PORTAL</a>
-            <span class="border-end border-secondary" style="height: 20px;"></span>
-            
-            <div class="d-flex align-items-center gap-2 overflow-hidden">
+    <!-- Üst bar + canlı haber bandı -->
+    <nav class="topbar mb-4">
+        <div class="container-fluid px-4 py-2 d-flex align-items-center gap-3">
+            <a class="d-flex align-items-center flex-shrink-0" href="#" aria-label="Finance Portal home">
+                <img src="{{ url_for('static', filename='image.png') }}" alt="Finance Portal" style="height: 32px; width: auto; object-fit: contain;">
+            </a>
+            <span class="border-end border-secondary d-none d-sm-block" style="height: 20px;"></span>
+
+            <div class="d-flex align-items-center gap-2 overflow-hidden flex-grow-1" aria-live="polite">
                 <span id="newsBadge" class="news-badge">NEWS</span>
-                <a id="newsText" href="#" target="_blank" class="news-ticker">Fetching latest market news...</a>
+                <a id="newsText" href="#" target="_blank" rel="noopener" class="news-ticker">Fetching latest market news...</a>
             </div>
+
+            <button class="theme-btn flex-shrink-0" id="themeBtn" type="button" aria-label="Switch light/dark theme">
+                <i class="bi bi-moon-stars-fill"></i>
+            </button>
         </div>
     </nav>
 
-    <div class="container-fluid px-4">
-        <!-- Header & Live Timer -->
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4 class="mb-0">Live Exchange Rates (USD Base)</h4>
-            <span class="badge bg-secondary text-white p-2" id="globalTimer">Updated just now</span>
-        </div>
+    <main class="container-fluid px-4 pb-5">
 
-        <!-- Top USD Currency Cards -->
-        <div class="row g-3 mb-4">
-            <!-- USD / EUR -->
-            <div class="col-md-4">
-                <div class="card shadow-sm border-0 bg-primary text-white p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="fs-6 text-white-50">US Dollar / Euro</span>
-                            <h2 class="mb-0">€{{ rates.EUR }}</h2>
-                        </div>
-                        <div class="text-end">
-                            <span class="badge bg-light text-primary mb-2">USD/EUR</span>
-                            <div class="update-badge last-updated">Updated 0s ago</div>
-                        </div>
+        <!-- Kur şeridi -->
+        <section aria-labelledby="ratesTitle" class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h1 class="panel-title" id="ratesTitle">Exchange rates <span class="text-muted-2 fw-normal">· USD base</span></h1>
+                <span class="small text-muted-2" id="globalTimer">Updated just now</span>
+            </div>
+            <div class="panel">
+                <div class="row g-0">
+                    <div class="col-md-4 rate">
+                        <div class="rate-pair">USD/EUR</div>
+                        <div class="rate-val num">€{{ rates.EUR }}</div>
+                        <div class="rate-name">US Dollar to Euro</div>
+                    </div>
+                    <div class="col-md-4 rate">
+                        <div class="rate-pair">USD/GBP</div>
+                        <div class="rate-val num">£{{ rates.GBP }}</div>
+                        <div class="rate-name">US Dollar to British Pound</div>
+                    </div>
+                    <div class="col-md-4 rate">
+                        <div class="rate-pair">USD/JPY</div>
+                        <div class="rate-val num">¥{{ rates.JPY }}</div>
+                        <div class="rate-name">US Dollar to Japanese Yen</div>
                     </div>
                 </div>
             </div>
+        </section>
 
-            <!-- USD / GBP -->
-            <div class="col-md-4">
-                <div class="card shadow-sm border-0 bg-success text-white p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="fs-6 text-white-50">US Dollar / British Pound</span>
-                            <h2 class="mb-0">£{{ rates.GBP }}</h2>
-                        </div>
-                        <div class="text-end">
-                            <span class="badge bg-light text-success mb-2">USD/GBP</span>
-                            <div class="update-badge last-updated">Updated 0s ago</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- USD / JPY -->
-            <div class="col-md-4">
-                <div class="card shadow-sm border-0 bg-warning text-dark p-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="fs-6 text-muted">US Dollar / Japanese Yen</span>
-                            <h2 class="mb-0">¥{{ rates.JPY }}</h2>
-                        </div>
-                        <div class="text-end">
-                            <span class="badge bg-dark text-warning mb-2">USD/JPY</span>
-                            <div class="update-badge text-muted last-updated" style="opacity: 1;">Updated 0s ago</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Main Dashboard Row -->
-        <div class="row g-4 mb-4">
-            
+        <div class="row g-4">
             <div class="col-lg-9 d-flex flex-column gap-4">
-                
-                <!-- Stock Lookup Card -->
-                <div class="card shadow-sm border-0 p-4">
-                    <h5 class="card-title mb-3 fw-bold">US Stock Interactive Chart</h5>
+
+                <!-- Hisse arama + mum grafiği -->
+                <section class="panel p-4" aria-labelledby="chartTitle">
+                    <h2 class="panel-title mb-3" id="chartTitle">US stock chart</h2>
+
                     <form id="searchForm" class="d-flex gap-2">
-                        <input type="text" id="tickerInput" class="form-control form-control-lg" placeholder="(EXP: AAPL, NVDA, TSLA, AMZN)..." required>
-                        <button type="submit" class="btn btn-primary px-4 fw-bold">Search</button>
+                        <label for="tickerInput" class="visually-hidden">Ticker symbol</label>
+                        <input type="text" id="tickerInput" class="form-control form-control-lg search-input"
+                               placeholder="Enter a ticker, e.g. AAPL" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+                        <button type="submit" id="searchBtn" class="btn btn-primary px-4 fw-semibold search-btn">
+                            <span class="btn-label">Search</span>
+                            <span class="btn-spin" aria-hidden="true"></span>
+                        </button>
                     </form>
 
-                    <!-- Candlestick Output Container -->
+                    <div class="load-bar" id="loadBar" aria-hidden="true"></div>
+
+                    <div class="d-flex flex-wrap align-items-center gap-2 mt-2" id="quickPicks" aria-label="Your saved tickers"></div>
+
+                    <div id="searchError" class="alert alert-danger mt-3 mb-0" role="alert" style="display: none;"></div>
+
+                    <div id="chartEmpty" class="chart-empty mt-4">
+                        <i class="bi bi-graph-up fs-3 d-block mb-2"></i>
+                        Search a ticker or pick one above to see its candlestick chart.
+                    </div>
+
                     <div id="searchResultArea" class="mt-4" style="display: none;">
-                        <div class="stock-box shadow-sm bg-white border p-3">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <div>
-                                    <h3 class="fw-bold text-dark mb-0" id="resTicker"></h3>
-                                    <span class="text-muted" id="resName"></span>
-                                </div>
-                                <div class="text-end">
-                                    <h3 class="fw-bold text-dark mb-0" id="resPrice"></h3>
-                                    <span class="badge fw-semibold" id="resChange"></span>
-                                </div>
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h3 class="fw-bold mb-0 num" id="resTicker"></h3>
+                                <span class="text-muted-2" id="resName"></span>
                             </div>
-
-                            <div class="candle-container">
-                                <canvas id="candlestickCanvas"></canvas>
-                                <!-- Çizim Katmanı -->
-                                <canvas id="drawingCanvas"></canvas>
-                            </div>
-
-                            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-                                <div class="d-flex align-items-center gap-2">
-                                    <div class="d-flex gap-1" id="timePeriodGroup">
-                                        <button class="period-btn active" data-period="1d">1D</button>
-                                        <button class="period-btn" data-period="1w">1W</button>
-                                        <button class="period-btn" data-period="1m">1M</button>
-                                        <button class="period-btn" data-period="1y">1Y</button>
-                                    </div>
-                                    <span class="border-end border-secondary mx-1" style="height: 18px;"></span>
-                                    
-                                    <!-- Kalem & Temizleme Butonları -->
-                                    <button class="draw-btn" id="toggleDrawBtn" title="Çizim Modu">
-                                        <i class="bi bi-pencil-fill"></i>
-                                    </button>
-                                    <button class="draw-btn text-danger" id="clearDrawBtn" title="Çizimleri Temizle">
-                                        <i class="bi bi-trash-fill"></i>
-                                    </button>
-
-                                    <!-- Kalem Boyutu Slider'ı -->
-                                    <div class="d-flex align-items-center gap-1 ms-1">
-                                        <input type="range" class="form-range" id="brushSize" min="1" max="15" value="2" style="width: 70px;">
-                                        <small id="brushSizeVal" class="text-muted fw-bold" style="font-size: 0.75rem;">2px</small>
-                                    </div>
-                                </div>
-                                <small class="text-muted fw-semibold">Live Candlestick Chart</small>
+                            <div class="text-end">
+                                <div class="fs-3 fw-semibold num" id="resPrice"></div>
+                                <span class="badge fw-semibold num" id="resChange"></span>
                             </div>
                         </div>
-                    </div>
-                    <div id="searchError" class="alert alert-danger mt-3" style="display: none;"></div>
-                </div>
 
-                <!-- Live Crypto Cards -->
-                <div class="card shadow-sm border-0 p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="card-title mb-0 fw-bold">Live Cryptocurrency Market</h5>
-                        <span class="badge bg-primary">Top Crypto</span>
-                    </div>
+                        <div class="candle-container">
+                            <canvas id="candlestickCanvas" role="img" aria-label="Candlestick price chart"></canvas>
+                            <canvas id="drawingCanvas"></canvas>
+                        </div>
 
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 pt-3 border-top" style="border-color: var(--line) !important;">
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <div class="d-flex gap-1" id="timePeriodGroup" role="group" aria-label="Time range">
+                                    <button type="button" class="period-btn active" data-period="1d">1D</button>
+                                    <button type="button" class="period-btn" data-period="1w">1W</button>
+                                    <button type="button" class="period-btn" data-period="1m">1M</button>
+                                    <button type="button" class="period-btn" data-period="1y">1Y</button>
+                                </div>
+
+                                <span class="border-end mx-1 d-none d-sm-block" style="height: 18px; border-color: var(--line) !important;"></span>
+
+                                <button type="button" class="tool-btn" id="toggleDrawBtn" title="Draw on chart" aria-label="Draw on chart" aria-pressed="false">
+                                    <i class="bi bi-pencil-fill"></i>
+                                </button>
+                                <button type="button" class="tool-btn down" id="clearDrawBtn" title="Clear drawings" aria-label="Clear drawings">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                                <input type="color" id="brushColor" value="#f59e0b" title="Pen color" aria-label="Pen color">
+                                <div class="d-flex align-items-center gap-1">
+                                    <input type="range" class="form-range" id="brushSize" min="1" max="15" value="2" style="width: 70px;" aria-label="Pen size">
+                                    <small id="brushSizeVal" class="text-muted-2 num" style="min-width: 28px;">2px</small>
+                                </div>
+                            </div>
+                            <small class="text-muted-2">Candlestick chart</small>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Kripto -->
+                <section class="panel p-4" aria-labelledby="cryptoTitle">
+                    <h2 class="panel-title mb-3" id="cryptoTitle">Cryptocurrency</h2>
                     <div class="row g-3">
                         {% for crypto in cryptos %}
                         {% set is_pos = not crypto.change.startswith('-') %}
+                        {% set shown = crypto.change if (crypto.change.startswith('-') or crypto.change.startswith('+')) else '+' ~ crypto.change %}
                         <div class="col-md-4 col-sm-6">
-                            <div class="crypto-card shadow-sm">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <span class="fw-bold text-dark">{{ crypto.symbol }}</span>
-                                        <small class="text-muted d-block" style="font-size: 0.75rem;">{{ crypto.name }}</small>
-                                    </div>
-                                    <div class="text-end">
-                                        <div class="fw-bold text-dark">{{ crypto.price }}</div>
-                                        <span class="badge {{ 'bg-success-subtle text-success' if is_pos else 'bg-danger-subtle text-danger' }}">
-                                            {{ '+' if is_pos else '' }}{{ crypto.change }}
-                                        </span>
-                                    </div>
+                            <div class="crypto-row d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-semibold">{{ crypto.symbol }}</div>
+                                    <small class="text-muted-2">{{ crypto.name }}</small>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-semibold num">{{ crypto.price }}</div>
+                                    <span class="badge num {{ 'chip-up' if is_pos else 'chip-down' }}">{{ shown }}</span>
                                 </div>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
-                </div>
-
+                </section>
             </div>
 
-            <!-- Right Column -->
-            <div class="col-lg-3">
-                <div class="card shadow-sm border-0 p-3 h-100">
+            <!-- Sağ sütun -->
+            <aside class="col-lg-3">
+                <div class="panel p-3 h-100">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="card-title mb-0 fs-6 fw-bold">Top US Stocks</h5>
+                        <h2 class="panel-title">Top US stocks</h2>
                         <span class="badge bg-danger">LIVE</span>
                     </div>
-
                     <div class="d-flex flex-column gap-3" id="stockBoxesContainer">
-                        <div class="stock-box shadow-sm" id="box-0"></div>
-                        <div class="stock-box shadow-sm" id="box-1"></div>
-                        <div class="stock-box shadow-sm" id="box-2"></div>
+                        <div class="stock-box" id="box-0"></div>
+                        <div class="stock-box" id="box-1"></div>
+                        <div class="stock-box" id="box-2"></div>
                     </div>
                 </div>
-            </div>
-
+            </aside>
         </div>
-    </div>
+    </main>
 
     <script>
-        // --- Live News Ticker Logic ---
+        const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+        // --- Tema ---
+        const themeBtn = document.getElementById('themeBtn');
+        function syncThemeIcon() {
+            const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+            themeBtn.innerHTML = dark ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-stars-fill"></i>';
+        }
+        themeBtn.addEventListener('click', () => {
+            const next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-bs-theme', next);
+            try { localStorage.setItem('theme', next); } catch (e) {}
+            syncThemeIcon();
+            if (lastCandles) renderCandlestickChart(lastCandles);
+        });
+        syncThemeIcon();
+
+        // --- Haber bandı ---
         let newsList = [];
         let currentNewsIndex = 0;
 
@@ -340,16 +351,16 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data && data.length > 0) {
+                        const first = newsList.length === 0;
                         newsList = data;
-                        showNextNews();
+                        if (first) showNextNews();
                     }
                 })
-                .catch(err => console.error("News error:", err));
+                .catch(err => console.error('News error:', err));
         }
 
         function showNextNews() {
             if (newsList.length === 0) return;
-
             const newsBadge = document.getElementById('newsBadge');
             const newsText = document.getElementById('newsText');
 
@@ -357,56 +368,43 @@
             newsBadge.style.display = 'inline-block';
 
             setTimeout(() => {
-                const item = newsList[currentNewsIndex];
+                const item = newsList[currentNewsIndex % newsList.length];
                 newsText.textContent = `[${item.source}] ${item.headline}`;
                 newsText.href = item.url || '#';
                 newsText.style.opacity = '1';
-
-                setTimeout(() => {
-                    newsBadge.style.display = 'none';
-                }, 3000);
-
+                setTimeout(() => { newsBadge.style.display = 'none'; }, 3000);
                 currentNewsIndex = (currentNewsIndex + 1) % newsList.length;
             }, 400);
         }
 
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener('DOMContentLoaded', () => {
             fetchLiveNews();
             setInterval(showNextNews, 30000);
             setInterval(fetchLiveNews, 300000);
         });
 
-        // --- Right Sidebar Rotation ---
+        // --- Yan sütun: dönen hisseler ---
         const stocksData = {{ stocks | tojson }};
         let currentIndex = 0;
-        let sidebarChartInstances = [null, null, null];
+        const sidebarChartInstances = [null, null, null];
 
         function renderSparkline(canvasId, historyData, isPositive, index) {
             const ctx = document.getElementById(canvasId).getContext('2d');
-            if (sidebarChartInstances[index]) {
-                sidebarChartInstances[index].destroy();
-            }
+            if (sidebarChartInstances[index]) sidebarChartInstances[index].destroy();
 
-            const lineColor = isPositive ? '#198754' : '#dc3545';
-            const bgColor = isPositive ? 'rgba(25, 135, 84, 0.1)' : 'rgba(220, 53, 69, 0.1)';
-
+            const color = isPositive ? cssVar('--up') : cssVar('--down');
             sidebarChartInstances[index] = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: Array(historyData.length).fill(''),
                     datasets: [{
-                        data: historyData,
-                        borderColor: lineColor,
-                        backgroundColor: bgColor,
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        fill: true,
-                        tension: 0.3
+                        data: historyData, borderColor: color, borderWidth: 2,
+                        backgroundColor: isPositive ? 'rgba(25,160,100,.12)' : 'rgba(220,53,69,.12)',
+                        pointRadius: 0, fill: true, tension: 0.3
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false }, tooltip: { enabled: false } },
                     scales: { x: { display: false }, y: { display: false } }
                 }
@@ -415,49 +413,35 @@
 
         function updateStockBoxes() {
             if (!stocksData || stocksData.length === 0) return;
-
-            const boxes = [
-                document.getElementById('box-0'),
-                document.getElementById('box-1'),
-                document.getElementById('box-2')
-            ];
-
+            const boxes = [0, 1, 2].map(i => document.getElementById('box-' + i));
             boxes.forEach(box => box.classList.add('fade-out'));
 
             setTimeout(() => {
                 for (let i = 0; i < 3; i++) {
                     const stock = stocksData[(currentIndex + i) % stocksData.length];
                     const isPositive = !stock.change.startsWith('-');
-                    const badgeClass = isPositive ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger';
                     const canvasId = `sparkline-${i}`;
 
                     boxes[i].innerHTML = `
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <span class="fw-bold text-dark">${stock.ticker}</span>
-                                <small class="text-muted d-block text-truncate" style="max-width: 100px;">${stock.name}</small>
+                                <div class="fw-semibold">${escapeHtml(stock.ticker)}</div>
+                                <small class="text-muted-2 d-block text-truncate" style="max-width: 100px;">${escapeHtml(stock.name)}</small>
                             </div>
                             <div class="text-end">
-                                <div class="fw-bold text-dark">${stock.price}</div>
-                                <span class="badge ${badgeClass} fw-semibold">${stock.change}</span>
+                                <div class="fw-semibold num">${escapeHtml(stock.price)}</div>
+                                <span class="badge num ${isPositive ? 'chip-up' : 'chip-down'}">${escapeHtml(stock.change)}</span>
                             </div>
                         </div>
-
-                        <div class="sparkline-container">
-                            <canvas id="${canvasId}"></canvas>
-                        </div>
-
+                        <div class="sparkline-container"><canvas id="${canvasId}"></canvas></div>
                         <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted" style="font-size: 0.7rem;">Last 12 Hours</small>
-                            <small class="${isPositive ? 'text-success' : 'text-danger'}" style="font-size: 0.7rem; font-weight: 600;">
+                            <small class="text-muted-2" style="font-size: .72rem;">Last 12 hours</small>
+                            <small class="${isPositive ? 'up' : 'down'}" style="font-size: .72rem; font-weight: 600;">
                                 ${isPositive ? '▲ Uptrend' : '▼ Downtrend'}
                             </small>
-                        </div>
-                    `;
-
+                        </div>`;
                     renderSparkline(canvasId, stock.history, isPositive, i);
                 }
-
                 boxes.forEach(box => box.classList.remove('fade-out'));
                 currentIndex = (currentIndex + 3) % stocksData.length;
             }, 400);
@@ -466,33 +450,28 @@
         updateStockBoxes();
         setInterval(updateStockBoxes, 10000);
 
-        // --- Live Timer ---
+        // --- Sayaç ---
         let secondsPassed = 0;
         setInterval(() => {
             secondsPassed++;
-            let timeText = secondsPassed < 60 ? `Updated ${secondsPassed}s ago` : `Updated ${Math.floor(secondsPassed / 60)}m ago`;
-            document.querySelectorAll('.last-updated').forEach(el => el.textContent = timeText);
-            document.getElementById('globalTimer').textContent = timeText;
+            document.getElementById('globalTimer').textContent =
+                secondsPassed < 60 ? `Updated ${secondsPassed}s ago` : `Updated ${Math.floor(secondsPassed / 60)}m ago`;
         }, 1000);
 
-        // --- Search & Candlestick Chart Logic ---
+        // --- Arama ve mum grafiği ---
         let candlestickChart = null;
+        let lastCandles = null;
         let activeSymbol = '';
         let activePeriod = '1d';
 
         function renderCandlestickChart(candlesData) {
+            lastCandles = candlesData;
             const ctx = document.getElementById('candlestickCanvas').getContext('2d');
-            
-            if (candlestickChart) {
-                candlestickChart.destroy();
-            }
+            if (candlestickChart) candlestickChart.destroy();
 
-            let timeUnit = 'hour';
-            if (activePeriod === '1w' || activePeriod === '1m') {
-                timeUnit = 'day';
-            } else if (activePeriod === '1y') {
-                timeUnit = 'month';
-            }
+            const timeUnit = activePeriod === '1y' ? 'month' : (activePeriod === '1d' ? 'hour' : 'day');
+            const tickColor = cssVar('--muted');
+            const gridColor = 'rgba(128, 138, 152, 0.15)';
 
             candlestickChart = new Chart(ctx, {
                 type: 'candlestick',
@@ -500,58 +479,53 @@
                     datasets: [{
                         label: activeSymbol,
                         data: candlesData,
-                        color: {
-                            up: '#00b060',
-                            down: '#ff3b30',
-                            unchanged: '#8e8e93'
-                        }
+                        color: { up: cssVar('--up'), down: cssVar('--down'), unchanged: '#8e8e93' }
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: { enabled: true }
-                    },
+                    plugins: { legend: { display: false }, tooltip: { enabled: true } },
                     scales: {
                         x: {
                             type: 'time',
-                            time: {
-                                unit: timeUnit,
-                                displayFormats: {
-                                    hour: 'HH:mm',
-                                    day: 'dd MMM',
-                                    month: 'MMM yyyy'
-                                }
-                            },
-                            grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                            time: { unit: timeUnit, displayFormats: { hour: 'HH:mm', day: 'dd MMM', month: 'MMM yyyy' } },
+                            grid: { color: gridColor }, ticks: { color: tickColor }
                         },
-                        y: {
-                            position: 'right',
-                            grid: { color: 'rgba(0, 0, 0, 0.05)' }
-                        }
+                        y: { position: 'right', grid: { color: gridColor }, ticks: { color: tickColor } }
                     }
                 }
             });
-            
             initDrawingCanvas();
+        }
+
+        function setLoading(on) {
+            const btn = document.getElementById('searchBtn');
+            btn.disabled = on;
+            btn.classList.toggle('is-loading', on);
+            btn.setAttribute('aria-busy', String(on));
+            document.getElementById('loadBar').classList.toggle('on', on);
         }
 
         function fetchStockData(symbol, period) {
             const errorDiv = document.getElementById('searchError');
             const resultArea = document.getElementById('searchResultArea');
+            const emptyState = document.getElementById('chartEmpty');
             errorDiv.style.display = 'none';
+            setLoading(true);
 
-            fetch(`/search_stock?symbol=${symbol}&period=${period}`)
+            fetch(`/search_stock?symbol=${encodeURIComponent(symbol)}&period=${encodeURIComponent(period)}`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.error) {
                         errorDiv.textContent = data.error;
                         errorDiv.style.display = 'block';
                         resultArea.style.display = 'none';
+                        emptyState.style.display = 'block';
+                        dropPending(symbol);
                         return;
                     }
+                    pendingSymbol = null;
 
                     document.getElementById('resTicker').textContent = data.ticker;
                     document.getElementById('resName').textContent = data.name;
@@ -560,106 +534,176 @@
                     const isPos = !data.change.startsWith('-');
                     const badge = document.getElementById('resChange');
                     badge.textContent = data.change;
-                    badge.className = `badge fw-semibold ${isPos ? 'bg-success text-white' : 'bg-danger text-white'}`;
+                    badge.className = `badge fw-semibold num ${isPos ? 'chip-up' : 'chip-down'}`;
 
+                    emptyState.style.display = 'none';
                     resultArea.style.display = 'block';
                     renderCandlestickChart(data.candles);
                 })
                 .catch(() => {
-                    errorDiv.textContent = 'ERROR. Cant pull data.';
+                    errorDiv.textContent = "Couldn't load data for this symbol. Check your connection and try again.";
                     errorDiv.style.display = 'block';
-                });
+                })
+                .finally(() => setLoading(false));
         }
 
-        document.getElementById('searchForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            activeSymbol = document.getElementById('tickerInput').value.trim();
+        function searchSymbol(symbol) {
+            activeSymbol = symbol.trim().toUpperCase();
+            if (!activeSymbol) return;
+            document.getElementById('tickerInput').value = activeSymbol;
             activePeriod = '1d';
-
-            document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelector('.period-btn[data-period="1d"]').classList.add('active');
-
+            document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.period === '1d'));
             fetchStockData(activeSymbol, activePeriod);
+        }
+
+        document.getElementById('searchForm').addEventListener('submit', e => {
+            e.preventDefault();
+            searchSymbol(document.getElementById('tickerInput').value);
         });
 
-        document.getElementById('timePeriodGroup').addEventListener('click', function(e) {
-            if (e.target.classList.contains('period-btn')) {
-                document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
+        // --- Kişisel hisse kapsülleri (tarayıcıda saklanır) ---
+        const quickPicks = document.getElementById('quickPicks');
+        let watchlist = [];
+        let pendingSymbol = null;
+        try { watchlist = JSON.parse(localStorage.getItem('watchlist') || '[]'); } catch (e) {}
+        if (!Array.isArray(watchlist)) watchlist = [];
 
-                activePeriod = e.target.getAttribute('data-period');
-                if (activeSymbol) {
-                    fetchStockData(activeSymbol, activePeriod);
-                }
+        function saveWatchlist() {
+            try { localStorage.setItem('watchlist', JSON.stringify(watchlist)); } catch (e) {}
+        }
+
+        function renderWatchlist(adding) {
+            quickPicks.innerHTML = watchlist.map(s => `
+                <span class="chip-wrap">
+                    <button type="button" class="quick-chip" data-symbol="${escapeHtml(s)}">${escapeHtml(s)}</button>
+                    <button type="button" class="chip-x" data-remove="${escapeHtml(s)}" aria-label="Remove ${escapeHtml(s)}">×</button>
+                </span>`).join('') +
+                (adding
+                    ? '<input type="text" class="chip-input" id="chipInput" maxlength="10" placeholder="TICKER" autocomplete="off" spellcheck="false" aria-label="New ticker">'
+                    : '<button type="button" class="quick-chip chip-add" id="chipAddBtn" title="Add a ticker" aria-label="Add a ticker">+</button>');
+
+            if (adding) {
+                const input = document.getElementById('chipInput');
+                input.focus();
+                input.addEventListener('keydown', e => {
+                    if (e.key === 'Enter') { e.preventDefault(); addSymbol(input.value); }
+                    if (e.key === 'Escape') renderWatchlist(false);
+                });
+                input.addEventListener('blur', () => { if (!input.value.trim()) renderWatchlist(false); });
             }
+        }
+
+        function addSymbol(raw) {
+            const sym = raw.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, '');
+            if (!sym) { renderWatchlist(false); return; }
+            if (!watchlist.includes(sym)) {
+                watchlist.push(sym);
+                pendingSymbol = sym;   // geçersiz çıkarsa aramadan sonra silinir
+                saveWatchlist();
+            }
+            renderWatchlist(false);
+            searchSymbol(sym);
+        }
+
+        function dropPending(symbol) {
+            if (pendingSymbol && pendingSymbol === symbol) {
+                watchlist = watchlist.filter(s => s !== symbol);
+                saveWatchlist();
+                renderWatchlist(false);
+            }
+            pendingSymbol = null;
+        }
+
+        quickPicks.addEventListener('click', e => {
+            if (e.target.closest('#chipAddBtn')) { renderWatchlist(true); return; }
+            const rm = e.target.closest('.chip-x');
+            if (rm) {
+                watchlist = watchlist.filter(s => s !== rm.dataset.remove);
+                saveWatchlist();
+                renderWatchlist(false);
+                return;
+            }
+            const chip = e.target.closest('.quick-chip[data-symbol]');
+            if (chip) searchSymbol(chip.dataset.symbol);
         });
 
-        // --- Canvas Drawing Overlay Logic ---
+        renderWatchlist(false);
+
+        document.getElementById('timePeriodGroup').addEventListener('click', e => {
+            const btn = e.target.closest('.period-btn');
+            if (!btn) return;
+            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activePeriod = btn.dataset.period;
+            if (activeSymbol) fetchStockData(activeSymbol, activePeriod);
+        });
+
+        // --- Çizim katmanı (mouse + dokunmatik) ---
         const drawCanvas = document.getElementById('drawingCanvas');
         const drawCtx = drawCanvas.getContext('2d');
         const toggleDrawBtn = document.getElementById('toggleDrawBtn');
-        const clearDrawBtn = document.getElementById('clearDrawBtn');
         const brushSizeInput = document.getElementById('brushSize');
         const brushSizeVal = document.getElementById('brushSizeVal');
+        const brushColor = document.getElementById('brushColor');
 
         let isDrawingMode = false;
         let isDrawing = false;
-        let currentLineWidth = 2;
 
         function initDrawingCanvas() {
-            const container = drawCanvas.parentElement;
-            drawCanvas.width = container.clientWidth;
-            drawCanvas.height = container.clientHeight;
+            const box = drawCanvas.parentElement;
+            const dpr = window.devicePixelRatio || 1;
+            drawCanvas.width = box.clientWidth * dpr;
+            drawCanvas.height = box.clientHeight * dpr;
+            drawCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        window.addEventListener('resize', () => { if (lastCandles) initDrawingCanvas(); });
+
+        function clearDrawing() {
+            drawCtx.save();
+            drawCtx.setTransform(1, 0, 0, 1, 0, 0);
+            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            drawCtx.restore();
         }
 
-        window.addEventListener('resize', initDrawingCanvas);
-
-        brushSizeInput.addEventListener('input', function() {
-            currentLineWidth = this.value;
+        brushSizeInput.addEventListener('input', function () {
             brushSizeVal.textContent = `${this.value}px`;
         });
 
-        toggleDrawBtn.addEventListener('click', function() {
+        toggleDrawBtn.addEventListener('click', function () {
             isDrawingMode = !isDrawingMode;
-            if (isDrawingMode) {
-                this.classList.add('active');
-                drawCanvas.classList.add('active');
-            } else {
-                this.classList.remove('active');
-                drawCanvas.classList.remove('active');
-            }
+            this.classList.toggle('active', isDrawingMode);
+            this.setAttribute('aria-pressed', String(isDrawingMode));
+            drawCanvas.classList.toggle('active', isDrawingMode);
         });
 
-        clearDrawBtn.addEventListener('click', function() {
-            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-        });
+        document.getElementById('clearDrawBtn').addEventListener('click', clearDrawing);
 
-        drawCanvas.addEventListener('mousedown', function(e) {
+        function pos(e) {
+            const r = drawCanvas.getBoundingClientRect();
+            return [e.clientX - r.left, e.clientY - r.top];
+        }
+
+        drawCanvas.addEventListener('pointerdown', e => {
             if (!isDrawingMode) return;
             isDrawing = true;
-            const rect = drawCanvas.getBoundingClientRect();
+            drawCanvas.setPointerCapture(e.pointerId);
+            const [x, y] = pos(e);
             drawCtx.beginPath();
-            drawCtx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+            drawCtx.moveTo(x, y);
         });
 
-        drawCanvas.addEventListener('mousemove', function(e) {
+        drawCanvas.addEventListener('pointermove', e => {
             if (!isDrawing || !isDrawingMode) return;
-            const rect = drawCanvas.getBoundingClientRect();
-            drawCtx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-            drawCtx.strokeStyle = '#000000';
-            drawCtx.lineWidth = currentLineWidth;
+            const [x, y] = pos(e);
+            drawCtx.lineTo(x, y);
+            drawCtx.strokeStyle = brushColor.value;
+            drawCtx.lineWidth = Number(brushSizeInput.value);
             drawCtx.lineCap = 'round';
             drawCtx.lineJoin = 'round';
             drawCtx.stroke();
         });
 
-        drawCanvas.addEventListener('mouseup', function() {
-            isDrawing = false;
-        });
-
-        drawCanvas.addEventListener('mouseleave', function() {
-            isDrawing = false;
-        });
+        ['pointerup', 'pointercancel'].forEach(t => drawCanvas.addEventListener(t, () => { isDrawing = false; }));
     </script>
 </body>
 </html>
